@@ -1,6 +1,9 @@
 #ifndef __LWIPOPTS_H__
 #define __LWIPOPTS_H__
 
+#define LWIP_IPV6               0
+#define LWIP_TIMEVAL_PRIVATE    0
+
 /* inter-task protection for certain critical regions during buffer 
 allocation, deallocation and memory allocation and deallocation */
 #define SYS_LIGHTWEIGHT_PROT    1
@@ -85,7 +88,7 @@ turning this on does currently not work. */
 
 /* ---------- Statistics options ---------- */
 #define LWIP_STATS 0
-#define LWIP_PROVIDE_ERRNO 1
+// #define LWIP_PROVIDE_ERRNO 1
 
 /* ---------- link callback options ---------- */
 /* LWIP_NETIF_LINK_CALLBACK==1: Support a callback function from an interface
