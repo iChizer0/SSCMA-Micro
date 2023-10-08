@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023 Hongtai Liu (Seeed Technology Inc.)
+ * Copyright (c) 2023 Seeed Technology Co.,Ltd
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,45 +23,38 @@
  *
  */
 
-#ifndef _EL_NETWORK_ESP_H_
-#define _EL_NETWORK_ESP_H_
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "freertos/queue.h"
-#include "freertos/event_groups.h"
-
-#include "esp_event.h"
-#include "esp_netif.h"
-#include "esp_wifi.h"
-
-// #include "nvs_flash.h"
+#ifndef _EL_NETWORK_H_
+#define _EL_NETWORK_H_
 
 #include "core/el_types.h"
-#include "porting/el_network.h"
-#include "porting/espressif/el_board_config.h"
 
 namespace edgelab {
 
-class NetworkEsp : public Network {
+class Network {
 public:
-    NetworkEsp()  = default;
-    ~NetworkEsp() = default;
+    Network() : _is_present(false) {}
+    virtual ~Network() = default;
 
-    el_err_code_t init() override;
-    el_err_code_t deinit() override;
+    /* Initialize TCP/IP protocol stack */
+    virtual el_err_code_t init();
+    virtual el_err_code_t deinit();
+    /* Connect to network interface */
+    virtual el_err_code_t connect(const char* ssid, const char *pwd);
+    virtual el_err_code_t close();
 
-    el_err_code_t connect(const char* ssid, const char *pwd) override;
-    el_err_code_t close() override;
+    /* TODO: BSD Socket-like API */
+    // virtual void socket();
+    // virtual bool connect(char* host, unsigned short port);
+    // virtual bool close(bool only_visible = true);
+    // virtual size_t read(char* data, size_t size);
+    // virtual size_t send(char* data, size_t size);
 
     operator bool() const { return _is_present; }
 
-private:
-    esp_netif_t *esp_netif;
-    SemaphoreHandle_t el_sem_got_ip;
+protected:
+    bool _is_present;
 };
 
-} // namespace edgelab
+}  // namespace edgelab
 
 #endif

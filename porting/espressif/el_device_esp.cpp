@@ -35,6 +35,7 @@
 #include "porting/espressif/el_camera_esp.h"
 #include "porting/espressif/el_display_esp.h"
 #include "porting/espressif/el_serial_esp.h"
+#include "porting/espressif/el_network_esp.h"
 
 namespace edgelab {
 
@@ -67,10 +68,12 @@ DeviceEsp::DeviceEsp() {
     static SerialEsp  serial{
       usb_serial_jtag_driver_config_t{.tx_buffer_size = 8192, .rx_buffer_size = 8192}
     };
+    static NetworkEsp network{};
 
     this->_camera  = &camera;
     this->_display = &display;
     this->_serial  = &serial;
+    this->_network = &network;
 
     static uint8_t sensor_id = 0;
     this->_registered_sensors.emplace_front(el_sensor_info_t{
