@@ -28,15 +28,12 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/semphr.h"
-#include "freertos/queue.h"
 #include "freertos/event_groups.h"
-
 #include "esp_event.h"
-#include "esp_netif.h"
 #include "esp_wifi.h"
-
-// #include "nvs_flash.h"
+#include "lwip/err.h"
+#include "lwip/sys.h"
+#include "nvs_flash.h"
 
 #include "core/el_types.h"
 #include "porting/el_network.h"
@@ -49,17 +46,18 @@ public:
     NetworkEsp()  = default;
     ~NetworkEsp() = default;
 
-    el_err_code_t init() override;
-    el_err_code_t deinit() override;
-
-    el_err_code_t connect(const char* ssid, const char *pwd) override;
-    el_err_code_t close() override;
+    el_wl_sta_t open(const char* ssid, const char *pwd) override;
+    el_wl_sta_t close() override;
+    el_wl_sta_t status() override;
 
     operator bool() const { return _is_present; }
 
 private:
     esp_netif_t *esp_netif;
-    SemaphoreHandle_t el_sem_got_ip;
+    // EventGroupHandle_t network_event_group;
+
+    el_wl_sta_t wl_status;
+    el_err_code_t wifi_init();
 };
 
 } // namespace edgelab
