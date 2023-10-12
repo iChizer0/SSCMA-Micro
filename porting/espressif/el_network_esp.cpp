@@ -27,13 +27,15 @@
 
 #include "core/el_debug.h"
 
-#define ESP_MAXIMUM_RETRY  5
+#define ESP_MAXIMUM_RETRY  10
 
 #define ESP_WIFI_CONNECTED (1 << 0)
 #define ESP_WIFI_FAILED    (1 << 1)
 
 static int32_t retry_cnt;
 static SemaphoreHandle_t el_sem_got_ip;
+
+static bool mqtt_connected = false;
 
 static void handler_wifi_disconnect(void* arg, esp_event_base_t base, int32_t id, void* data)
 {
@@ -58,38 +60,51 @@ static void handler_sta_got_ip(void* arg, esp_event_base_t base, int32_t id, voi
 {
     printf("ESP_STA_GOT_IP\r\n");
     retry_cnt = 0;
-    ip_event_got_ip_t *event = (ip_event_got_ip_t *)data;
+    // ip_event_got_ip_t *event = (ip_event_got_ip_t *)data;
     if (el_sem_got_ip) {
         xSemaphoreGive(el_sem_got_ip);
     }
 }
 
-namespace edgelab {
-
-el_err_code_t NetworkEsp::wifi_init() {
-    printf("wifi_init\r\n");
-    /* Create a netif for WIFI station */
-    esp_netif_inherent_config_t esp_netif_config = ESP_NETIF_INHERENT_DEFAULT_WIFI_STA();
-    esp_netif_config.if_desc = "edgelab";
-    esp_netif_config.route_prio = 128;
-    esp_netif = esp_netif_create_wifi(WIFI_IF_STA, &esp_netif_config);
-    esp_event_loop_create_default();
-    // esp_wifi_set_default_wifi_sta_handlers();
-
-    /* Initialize Wi-Fi and start STA mode */
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    esp_wifi_init(&cfg);
-    esp_wifi_set_storage(WIFI_STORAGE_RAM);
-    esp_wifi_set_mode(WIFI_MODE_STA);
-    esp_wifi_start();
-
-    return EL_OK;
+static void handler_mqtt_event(void* arg, esp_event_base_t base, int32_t id, void* data) {
+    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)data;
+    esp_mqtt_client_handle_t client = event->client;
+    topic_cb_t cb = (topic_cb_t)arg;
+    switch ((esp_mqtt_event_id_t)id) {
+    case MQTT_EVENT_CONNECTED:
+        mqtt_connected = true;
+        printf("MQTT_EVENT_CONNECTED\r\n");
+        break;
+    case MQTT_EVENT_DISCONNECTED:
+        mqtt_connected = false;
+        printf("MQTT_EVENT_DISCONNECTED\r\n");
+        break;
+    case MQTT_EVENT_SUBSCRIBED:
+        printf("MQTT_EVENT_SUBSCRIBED\r\n");
+        break;
+    case MQTT_EVENT_UNSUBSCRIBED:
+        printf("MQTT_EVENT_UNSUBSCRIBED\r\n");
+        break;
+    case MQTT_EVENT_PUBLISHED:
+        printf("MQTT_EVENT_PUBLISHED\r\n");
+        break;
+    case MQTT_EVENT_DATA:
+        printf("MQTT_EVENT_DATA\r\n");
+        if (cb) cb(event->topic, event->topic_len, event->data, event->data_len);
+        break;
+    case MQTT_EVENT_ERROR:
+    default:
+        break;
+    }
 }
 
-el_wl_sta_t NetworkEsp::open(const char* ssid, const char *pwd) {
-    printf("open ssid=%s pwd=%s\r\n", ssid, pwd);
-    // network_event_group = xEventGroupCreate();
+namespace edgelab {
 
+el_err_code_t NetworkEsp::open(const char* ssid, const char *pwd) {
+    printf("ssid=%s pwd=%s\r\n", ssid, pwd);
+    network_status = NETWORK_LOST;
+
+    /* Initialize NVS for config */
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
@@ -97,8 +112,20 @@ el_wl_sta_t NetworkEsp::open(const char* ssid, const char *pwd) {
     }
     esp_netif_init();
     esp_event_loop_create_default();
-    wl_status = WL_DISCONNECTED;
-    wifi_init();
+
+    /* Create a netif for WIFI station */
+    esp_netif_inherent_config_t esp_netif_config = ESP_NETIF_INHERENT_DEFAULT_WIFI_STA();
+    esp_netif_config.if_desc = "edgelab";
+    esp_netif_config.route_prio = 128;
+    esp_netif = esp_netif_create_wifi(WIFI_IF_STA, &esp_netif_config);
+    esp_wifi_set_default_wifi_sta_handlers();
+
+    /* Initialize Wi-Fi and start STA mode */
+    wifi_init_config_t init_cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init(&init_cfg);
+    esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_start();
 
     /* Set ssid and password for connection */
     wifi_config_t cfg = { 
@@ -118,47 +145,112 @@ el_wl_sta_t NetworkEsp::open(const char* ssid, const char *pwd) {
     }
     if (esp_wifi_set_config(WIFI_IF_STA, &cfg) != ESP_OK) {
         printf("set config failed!\r\n");
-        return WL_CONNECT_FAILED;
+        return EL_FAILED;
     }
 
     /* Create semaphore and register event handler */
     el_sem_got_ip = xSemaphoreCreateBinary();
     if (el_sem_got_ip == NULL) {
-        return WL_CONNECT_FAILED;
+        return EL_FAILED;
     }
     retry_cnt = 0;
     esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &handler_wifi_disconnect, NULL);
     esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_CONNECTED, &handler_wifi_connect, esp_netif);
     esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &handler_sta_got_ip, NULL);
 
-    /* Start DHCP client */
-    esp_netif_dhcp_status_t status = ESP_NETIF_DHCP_INIT;
-    esp_netif_dhcpc_get_status(esp_netif, &status);
-    esp_netif_dhcpc_start(esp_netif);
     if (esp_wifi_connect() != ESP_OK) {
         printf("connect failed!\r\n");
-        return WL_CONNECT_FAILED;
+        return EL_FAILED;
     }
 
     EL_LOGI("WAITING FOR IP...\r\n");
     xSemaphoreTake(el_sem_got_ip, portMAX_DELAY);
     if (retry_cnt > ESP_MAXIMUM_RETRY) {
         printf("connect failed!\r\n");
-        return WL_CONNECT_FAILED;
+        return EL_ETIMOUT;
     }
 
-    wl_status = WL_CONNECTED;
-    return wl_status;
+    network_status = NETWORK_READY;
+    return EL_OK;
 }
 
-el_wl_sta_t NetworkEsp::close() {
-    wl_status = WL_DISCONNECTED;
-    return wl_status;
+el_err_code_t NetworkEsp::close() {
+    esp_wifi_disconnect();
+    network_status = NETWORK_LOST;
+    return EL_OK;
 }
 
-el_wl_sta_t NetworkEsp::status() {
-    return wl_status;
+el_net_sta_t NetworkEsp::status() {
+    return network_status;
 }
 
+
+/**
+ * Connects to a server using MQTT protocol and starts the MQTT client.
+ *
+ * @param server The server address to connect to.
+ * @param user The username for authentication (optional).
+ * @param pass The password for authentication (optional).
+ * @param cb The callback function to handle MQTT data events.
+ *
+ * @return el_err_code_t The error code indicating the result of the connection attempt.
+ */
+el_err_code_t NetworkEsp::connect(const char* server, const char *user, const char *pass, topic_cb_t cb) {
+    char url[128] = {0};
+    if (server == NULL) {
+        return EL_EINVAL;
+    }
+    if (user != NULL && pass != NULL) {
+        sprintf(url, "mqtt://%s:%s@%s", user, pass, server);
+    } else {
+        sprintf(url, "mqtt://%s", server);
+    }
+
+    esp_mqtt_client_config_t mqtt_cfg = {.broker = {.address = {.uri = url}}};
+    mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
+
+    esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, handler_mqtt_event, (void *)cb);
+    esp_mqtt_client_start(mqtt_client);
+    return EL_OK;
+}
+
+el_err_code_t NetworkEsp::subscribe(const char* topic, mqtt_qos_t qos) {
+    if (!mqtt_connected) {
+        return EL_FAILED;
+    }
+    int msg_id = esp_mqtt_client_subscribe(mqtt_client, topic, qos);
+    if (msg_id < 0) {
+        return EL_FAILED;
+    } else if (qos != MQTT_QOS_0 && msg_id == 0) {
+        return EL_EIO;
+    }
+    return EL_OK;
+}
+
+el_err_code_t NetworkEsp::unsubscribe(const char* topic) {
+    if (!mqtt_connected) {
+        return EL_FAILED;
+    }
+    int msg_id = esp_mqtt_client_unsubscribe(mqtt_client, topic);
+    if (msg_id < 0) {
+        return EL_FAILED;
+    }
+    return EL_OK;
+}
+
+el_err_code_t NetworkEsp::publish(const char* topic, const char* dat, uint32_t len, mqtt_qos_t qos) {
+    if (!mqtt_connected) {
+        return EL_FAILED;
+    }
+
+    int msg_id = esp_mqtt_client_publish(mqtt_client, topic, dat, len, qos, 0);
+
+    if (msg_id < 0) {
+        return EL_FAILED;
+    } else if (qos != MQTT_QOS_0 && msg_id == 0) {
+        return EL_EIO;
+    }
+    return EL_OK;
+}
 
 } // namespace edgelab

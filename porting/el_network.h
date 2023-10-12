@@ -28,36 +28,39 @@
 
 #include "core/el_types.h"
 
+typedef void (*topic_cb_t)(char* top, int tlen, char* msg, int mlen);
 typedef enum {
-    WL_IDLE_STATUS      = 0,
-    WL_NO_SSID_AVAIL    = 1,
-    WL_SCAN_COMPLETED   = 2,
-    WL_CONNECTED        = 3,
-    WL_CONNECT_FAILED   = 4,
-    WL_CONNECTION_LOST  = 5,
-    WL_DISCONNECTED     = 6
-} el_wl_sta_t;
+    NETWORK_IDLE = 0,
+    NETWORK_LOST,
+    NETWORK_READY,
+} el_net_sta_t;
+
+typedef enum {
+    MQTT_QOS_0 = 0,
+    MQTT_QOS_1,
+    MQTT_QOS_2
+} mqtt_qos_t;
 
 namespace edgelab {
 
 // WIFI-STA for MQTT
 class Network {
 public:
-    Network() : _is_present(false) {}
+    Network() : _is_present(false), network_status(NETWORK_IDLE) {}
     virtual ~Network() = default;
 
     /* WIFI station */
-    virtual el_wl_sta_t open(const char* ssid, const char *pwd) = 0;
-    virtual el_wl_sta_t close() = 0;
-    virtual el_wl_sta_t status() = 0;
+    virtual el_err_code_t open(const char* ssid, const char *pwd) = 0;
+    virtual el_err_code_t close() = 0;
+    virtual el_net_sta_t status() = 0;
 
     /* MQTT client */
-    // virtual el_err_code_t setup(const char *id, const char *user, const char *pass);
-    // virtual el_err_code_t connect(const char* server, uint16_t port);
-    // virtual el_err_code_t subscribe(const char* topic);
-    // virtual el_err_code_t publish(const char* topic, const char* payload);
+    virtual el_err_code_t connect(const char* server, const char *user, const char *pass, topic_cb_t cb) = 0;
+    virtual el_err_code_t subscribe(const char* topic, mqtt_qos_t qos) = 0;
+    virtual el_err_code_t unsubscribe(const char* topic) = 0;
+    virtual el_err_code_t publish(const char* topic, const char* dat, uint32_t len, mqtt_qos_t qos) = 0;
 
-    /* HTTP client */
+    /* TODO: Add HTTP client */
     // virtual el_err_code_t request(const char* url, const char* method, const char* payload);
     // virtual el_err_code_t get(const char* url, const char* payload);
     // virtual el_err_code_t post(const char* url, const char* payload);
@@ -66,6 +69,7 @@ public:
 
 protected:
     bool _is_present;
+    el_net_sta_t network_status;
 };
 
 }  // namespace edgelab

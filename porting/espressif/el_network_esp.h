@@ -33,6 +33,10 @@
 #include "esp_wifi.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include "lwip/sockets.h"
+#include "lwip/dns.h"
+#include "lwip/netdb.h"
+#include "mqtt_client.h"
 #include "nvs_flash.h"
 
 #include "core/el_types.h"
@@ -46,18 +50,20 @@ public:
     NetworkEsp()  = default;
     ~NetworkEsp() = default;
 
-    el_wl_sta_t open(const char* ssid, const char *pwd) override;
-    el_wl_sta_t close() override;
-    el_wl_sta_t status() override;
+    el_err_code_t open(const char* ssid, const char *pwd) override;
+    el_err_code_t close() override;
+    el_net_sta_t status() override;
+
+    el_err_code_t connect(const char* server, const char *user, const char *pass, topic_cb_t cb) override;
+    el_err_code_t subscribe(const char* topic, mqtt_qos_t qos) override;
+    el_err_code_t unsubscribe(const char* topic) override;
+    el_err_code_t publish(const char* topic, const char* dat, uint32_t len, mqtt_qos_t qos) override;
 
     operator bool() const { return _is_present; }
 
 private:
     esp_netif_t *esp_netif;
-    // EventGroupHandle_t network_event_group;
-
-    el_wl_sta_t wl_status;
-    el_err_code_t wifi_init();
+    esp_mqtt_client_handle_t mqtt_client;
 };
 
 } // namespace edgelab

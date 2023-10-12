@@ -39,15 +39,16 @@ extern "C" {
 
 typedef enum {
     EL_OK      = 0,  // success
-    EL_AGAIN   = 1,  // try again
-    EL_ELOG    = 2,  // logic error
-    EL_ETIMOUT = 3,  // timeout
-    EL_EIO     = 4,  // IO error
-    EL_EINVAL  = 5,  // invalid argument
-    EL_ENOMEM  = 6,  // out of memory
-    EL_EBUSY   = 7,  // busy
-    EL_ENOTSUP = 8,  // not supported
-    EL_EPERM   = 9,  // operation not permitted
+    EL_FAILED,       // operate failed
+    EL_AGAIN,        // try again
+    EL_ELOG,         // logic error
+    EL_ETIMOUT,      // timeout
+    EL_EIO,          // IO error
+    EL_EINVAL,       // invalid argument
+    EL_ENOMEM,       // out of memory
+    EL_EBUSY,        // busy
+    EL_ENOTSUP,      // not supported
+    EL_EPERM,        // operation not permitted
 } el_err_code_t;
 
 typedef struct EL_ATTR_PACKED el_shape_t {
