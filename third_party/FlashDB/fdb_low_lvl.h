@@ -31,14 +31,14 @@
  */
 #define FDB_ALIGN(size, align)                    ((size + align - 1) - ((size + align -1) % align))
 /* align by write granularity */
-#define FDB_WG_ALIGN(size)                        (FDB_ALIGN(size, (FDB_WRITE_GRAN + 7)/8))
+#define FDB_WG_ALIGN(size)                        (FDB_ALIGN(size, (uint8_t)((FDB_WRITE_GRAN + 7)/8)))
 /**
  * Return the down number of aligned at specified width. RT_ALIGN_DOWN(13, 4)
  * would return 12.
  */
 #define FDB_ALIGN_DOWN(size, align)               ((size) & ~((align) - 1))
 /* align down by write granularity */
-#define FDB_WG_ALIGN_DOWN(size)                   (FDB_ALIGN_DOWN(size, (FDB_WRITE_GRAN + 7)/8))
+#define FDB_WG_ALIGN_DOWN(size)                   (FDB_ALIGN_DOWN(size,  (uint8_t)((FDB_WRITE_GRAN + 7)/8)))
 
 #define FDB_STORE_STATUS_TABLE_SIZE               FDB_STATUS_TABLE_SIZE(FDB_SECTOR_STORE_STATUS_NUM)
 #define FDB_DIRTY_STATUS_TABLE_SIZE               FDB_STATUS_TABLE_SIZE(FDB_SECTOR_DIRTY_STATUS_NUM)
