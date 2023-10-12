@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023 Seeed Technology Co.,Ltd
+ * Copyright (c) 2023 Hongtai Liu (Seeed Technology Inc.)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,39 +23,40 @@
  *
  */
 
-#ifndef _EL_CAMERA_H_
-#define _EL_CAMERA_H_
-
-#include <cstddef>
-#include <cstdint>
-
-#include "core/el_types.h"
+#include "el_camera_hm0360.h"
 
 namespace edgelab {
 
-class Camera {
-   public:
-    Camera() : _is_present(false), _is_streaming(false) {}
-    virtual ~Camera() = default;
+el_err_code_t CameraHM0360::init(size_t width, size_t height) { return drv_hm0360_init(width, height); }
+el_err_code_t CameraHM0360::deinit() { return drv_hm0360_deinit(); }
 
-    virtual el_err_code_t init(size_t width, size_t height) = 0;
-    virtual el_err_code_t deinit()                          = 0;
+el_err_code_t CameraHM0360::start_stream() {
+    this->_is_streaming = true;
 
-    virtual el_err_code_t start_stream() = 0;
-    virtual el_err_code_t stop_stream()  = 0;
+    return drv_hm0360_capture(2000);
+}
 
-    virtual el_err_code_t get_frame(el_img_t* img) = 0;
-    virtual el_err_code_t get_jpeg(el_img_t* img)  = 0;
+el_err_code_t CameraHM0360::stop_stream() {
+    this->_is_streaming = false;
+    return EL_OK;
+}
+el_err_code_t CameraHM0360::get_frame(el_img_t* img) {
+    if (!this->_is_streaming) {
+        return EL_EIO;
+    }
+    *img = drv_hm0360_get_frame();
+    el_printf("frame:%08x, size: %d\n", img->data, img->size);
 
-    operator bool() const { return _is_present; }
-
-    bool is_streaming() const { return _is_streaming; }
-
-   protected:
-    bool _is_present;
-    bool _is_streaming;
-};
+    return EL_OK;
+}
+el_err_code_t CameraHM0360::get_jpeg(el_img_t* img) {
+    if (!this->_is_streaming) {
+        return EL_EIO;
+    }
+    *img = drv_hm0360_get_jpeg();
+    el_printf("jpeg:%08x, size: %d\n", img->data, img->size);
+    return EL_OK;
+}
+//el_err_code_t CameraHM0360::get_resolutions(el_res_t** res, size_t* res_count) { return EL_OK; }
 
 }  // namespace edgelab
-
-#endif

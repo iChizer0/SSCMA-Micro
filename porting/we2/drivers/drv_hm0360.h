@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023 Seeed Technology Co.,Ltd
+ * Copyright (c) 2023 Hongtai Liu, nullptr (Seeed Technology Inc.)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,39 +23,40 @@
  *
  */
 
-#ifndef _EL_CAMERA_H_
-#define _EL_CAMERA_H_
+#ifndef DRV_HM0360_H_
+#define DRV_HM0360_H_
 
-#include <cstddef>
-#include <cstdint>
+#include <ctype.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "core/el_types.h"
+/* MCU */
+#include "WE2_device.h"
+#include "hx_drv_CIS_common.h"
+#include "hx_drv_scu.h"
+#include "sensor_dp_lib.h"
 
-namespace edgelab {
+/* el */
+#include "el_common.h"
 
-class Camera {
-   public:
-    Camera() : _is_present(false), _is_streaming(false) {}
-    virtual ~Camera() = default;
+#define DEAULT_XHSUTDOWN_PIN AON_GPIO2
+#define HM0360_MAX_WIDTH     640
+#define HM0360_MAX_HEIGHT    480
 
-    virtual el_err_code_t init(size_t width, size_t height) = 0;
-    virtual el_err_code_t deinit()                          = 0;
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-    virtual el_err_code_t start_stream() = 0;
-    virtual el_err_code_t stop_stream()  = 0;
+el_err_code_t drv_hm0360_init(uint16_t width, uint16_t height);
+el_err_code_t drv_hm0360_deinit();
+el_err_code_t drv_hm0360_capture(uint32_t timeout);
+el_img_t      drv_hm0360_get_frame();
+el_img_t      drv_hm0360_get_jpeg();
 
-    virtual el_err_code_t get_frame(el_img_t* img) = 0;
-    virtual el_err_code_t get_jpeg(el_img_t* img)  = 0;
-
-    operator bool() const { return _is_present; }
-
-    bool is_streaming() const { return _is_streaming; }
-
-   protected:
-    bool _is_present;
-    bool _is_streaming;
-};
-
-}  // namespace edgelab
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023 Seeed Technology Co.,Ltd
+ * Copyright (c) 2023 Hongtai Liu (Seeed Technology Inc.)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,39 +23,46 @@
  *
  */
 
-#ifndef _EL_CAMERA_H_
-#define _EL_CAMERA_H_
+#ifndef _BOARD_GROVE_VISION_AI_H_
+#define _BOARD_GROVE_VISION_AI_H_
 
-#include <cstddef>
-#include <cstdint>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include "core/el_types.h"
+#include "BITOPS.h"
+#include "WE2_core.h"
+#include "WE2_device.h"
+#include "board.h"
+#include "hx_drv_pmu.h"
+#include "hx_drv_pmu_export.h"
+#include "powermode.h"
+#include "powermode_export.h"
+#include "xprintf.h"
 
-namespace edgelab {
+#ifdef TRUSTZONE_SEC
+    #if (__ARM_FEATURE_CMSE & 1) == 0
+        #error "Need ARMv8-M security extensions"
+    #elif (__ARM_FEATURE_CMSE & 2) == 0
+        #error "Compile with --cmse"
+    #endif
+    #include "arm_cmse.h"
+    #ifdef NSC
+        #include "veneer_table.h"
+    #endif
+    /* Trustzone config. */
 
-class Camera {
-   public:
-    Camera() : _is_present(false), _is_streaming(false) {}
-    virtual ~Camera() = default;
+    #ifndef TRUSTZONE_SEC_ONLY
+        /* FreeRTOS includes. */
+        #include "secure_port_macros.h"
+    #endif
+#endif
 
-    virtual el_err_code_t init(size_t width, size_t height) = 0;
-    virtual el_err_code_t deinit()                          = 0;
+#include "ethosu_driver.h"
+#include "spi_eeprom_comm.h"
 
-    virtual el_err_code_t start_stream() = 0;
-    virtual el_err_code_t stop_stream()  = 0;
-
-    virtual el_err_code_t get_frame(el_img_t* img) = 0;
-    virtual el_err_code_t get_jpeg(el_img_t* img)  = 0;
-
-    operator bool() const { return _is_present; }
-
-    bool is_streaming() const { return _is_streaming; }
-
-   protected:
-    bool _is_present;
-    bool _is_streaming;
-};
-
-}  // namespace edgelab
+#ifdef __cplusplus
+}
+#endif
 
 #endif

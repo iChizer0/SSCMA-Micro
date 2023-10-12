@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023 Seeed Technology Co.,Ltd
+ * Copyright (c) 2023 Hongtai Liu (Seeed Technology Inc.)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,39 +23,39 @@
  *
  */
 
-#ifndef _EL_CAMERA_H_
-#define _EL_CAMERA_H_
-
-#include <cstddef>
-#include <cstdint>
-
-#include "core/el_types.h"
+#include "el_camera_ov5647.h"
 
 namespace edgelab {
 
-class Camera {
-   public:
-    Camera() : _is_present(false), _is_streaming(false) {}
-    virtual ~Camera() = default;
+el_err_code_t CameraOV5647::init(size_t width, size_t height) { return drv_ov5647_init(width, height); }
+el_err_code_t CameraOV5647::deinit() { return drv_ov5647_deinit(); }
 
-    virtual el_err_code_t init(size_t width, size_t height) = 0;
-    virtual el_err_code_t deinit()                          = 0;
+el_err_code_t CameraOV5647::start_stream() {
+    this->_is_streaming = true;
 
-    virtual el_err_code_t start_stream() = 0;
-    virtual el_err_code_t stop_stream()  = 0;
+    return drv_ov5647_capture(2000);
+}
 
-    virtual el_err_code_t get_frame(el_img_t* img) = 0;
-    virtual el_err_code_t get_jpeg(el_img_t* img)  = 0;
+el_err_code_t CameraOV5647::stop_stream() {
+    this->_is_streaming = false;
+    return EL_OK;
+}
+el_err_code_t CameraOV5647::get_frame(el_img_t* img) {
+    if (!this->_is_streaming) {
+        return EL_EIO;
+    }
+    *img = drv_ov5647_get_frame();
 
-    operator bool() const { return _is_present; }
-
-    bool is_streaming() const { return _is_streaming; }
-
-   protected:
-    bool _is_present;
-    bool _is_streaming;
-};
+    return EL_OK;
+}
+el_err_code_t CameraOV5647::get_jpeg(el_img_t* img) {
+    if (!this->_is_streaming) {
+        return EL_EIO;
+    }
+    *img = drv_ov5647_get_jpeg();
+    
+    return EL_OK;
+}
+//el_err_code_t CameraOV5647::get_resolutions(el_res_t** res, size_t* res_count) { return EL_OK; }
 
 }  // namespace edgelab
-
-#endif

@@ -23,37 +23,33 @@
  *
  */
 
-#ifndef _EL_CAMERA_H_
-#define _EL_CAMERA_H_
+#ifndef _EL_SERIAL_WE2_H_
+#define _EL_SERIAL_WE2_H_
 
-#include <cstddef>
-#include <cstdint>
+#include <console_io.h>
+#include <hx_drv_uart.h>
 
-#include "core/el_types.h"
+#include "porting/el_serial.h"
 
 namespace edgelab {
 
-class Camera {
+class SerialWE2 : public Serial {
    public:
-    Camera() : _is_present(false), _is_streaming(false) {}
-    virtual ~Camera() = default;
+    SerialWE2();
+    ~SerialWE2() override;
 
-    virtual el_err_code_t init(size_t width, size_t height) = 0;
-    virtual el_err_code_t deinit()                          = 0;
+    el_err_code_t init() override;
+    el_err_code_t deinit() override;
 
-    virtual el_err_code_t start_stream() = 0;
-    virtual el_err_code_t stop_stream()  = 0;
+    char   echo(bool only_visible = true) override;
+    char   get_char() override;
+    size_t get_line(char* buffer, size_t size, const char delim = 0x0d) override;
 
-    virtual el_err_code_t get_frame(el_img_t* img) = 0;
-    virtual el_err_code_t get_jpeg(el_img_t* img)  = 0;
+    el_err_code_t read_bytes(char* buffer, size_t size) override;
+    el_err_code_t send_bytes(const char* buffer, size_t size) override;
 
-    operator bool() const { return _is_present; }
-
-    bool is_streaming() const { return _is_streaming; }
-
-   protected:
-    bool _is_present;
-    bool _is_streaming;
+   private:
+    DEV_UART* console_uart;
 };
 
 }  // namespace edgelab

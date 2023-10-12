@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023 Seeed Technology Co.,Ltd
+ * Copyright (c) 2023 (Seeed Technology Inc.)
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,37 +23,22 @@
  *
  */
 
-#ifndef _EL_CAMERA_H_
-#define _EL_CAMERA_H_
+#ifndef _EL_DEVICE_WE2_H_
+#define _EL_DEVICE_WE2_H_
 
-#include <cstddef>
-#include <cstdint>
-
-#include "core/el_types.h"
+#include "el_board_config.h"
+#include "el_common.h"
+#include "porting/el_device.h"
 
 namespace edgelab {
 
-class Camera {
+class DeviceWE2 : public Device {
    public:
-    Camera() : _is_present(false), _is_streaming(false) {}
-    virtual ~Camera() = default;
+    static bool _is_first_run;
+    DeviceWE2();
+    ~DeviceWE2();
 
-    virtual el_err_code_t init(size_t width, size_t height) = 0;
-    virtual el_err_code_t deinit()                          = 0;
-
-    virtual el_err_code_t start_stream() = 0;
-    virtual el_err_code_t stop_stream()  = 0;
-
-    virtual el_err_code_t get_frame(el_img_t* img) = 0;
-    virtual el_err_code_t get_jpeg(el_img_t* img)  = 0;
-
-    operator bool() const { return _is_present; }
-
-    bool is_streaming() const { return _is_streaming; }
-
-   protected:
-    bool _is_present;
-    bool _is_streaming;
+    void restart() override;
 };
 
 }  // namespace edgelab

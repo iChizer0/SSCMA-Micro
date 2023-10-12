@@ -33,6 +33,8 @@
     #include "porting/espressif/el_flash_esp.h"
 #elif defined(CONFIG_EL_TARGET_HIMAX)
     #include "porting/himax/el_flash_himax.h"
+#elif defined(CONFIG_EL_TARGET_WE2)
+    #include "porting/we2/el_flash_we2.h"
 #endif
 
 #endif

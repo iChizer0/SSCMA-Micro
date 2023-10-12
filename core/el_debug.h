@@ -55,7 +55,7 @@
     #endif
 
     #if CONFIG_EL_DEBUG >= 1
-        #define EL_ELOG(...)                            \
+        #define EL_LOGE(...)                            \
             do {                                        \
                 el_printf(EL_DEBUG_COLOR_RED "E ");     \
                 EL_DEBUG_MORE_INFO();                   \
@@ -63,7 +63,7 @@
                 el_printf(EL_DEBUG_COLOR_RESET "\r\n"); \
             } while (0)
     #else
-        #define EL_ELOG(...)
+        #define EL_LOGE(...)
     #endif
 
     #if CONFIG_EL_DEBUG >= 2
@@ -89,7 +89,7 @@
         #define EL_LOGI(...)
     #endif
     #if CONFIG_EL_DEBUG >= 4
-        #define LOG_D(...)                              \
+        #define EL_LOGD(...)                            \
             do {                                        \
                 el_printf(EL_DEBUG_COLOR_GREEN "V ");   \
                 EL_DEBUG_MORE_INFO();                   \
@@ -97,13 +97,13 @@
                 el_printf(EL_DEBUG_COLOR_RESET "\r\n"); \
             } while (0)
     #else
-        #define LOG_D(...)
+        #define EL_LOGD(...)
     #endif
 #else
     #define EL_ELOG(...)
     #define EL_LOGW(...)
     #define EL_LOGI(...)
-    #define LOG_D(...)
+    #define EL_LOGD(...)
 #endif
 
 #if CONFIG_EL_ASSERT

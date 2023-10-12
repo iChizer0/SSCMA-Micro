@@ -21,17 +21,17 @@ using namespace edgelab::utility;
 
 namespace string_concat {
 
-constexpr inline std::size_t lengthof(const char* s) {
+inline std::size_t lengthof(const char* s) {
     std::size_t size = 0;
     while (*(s + size) != '\0') ++size;
     return size;
 }
 
-template <class T, std::size_t N> constexpr inline std::size_t lengthof(const T (&)[N]) noexcept { return N; }
+template <class T, std::size_t N> inline std::size_t lengthof(const T (&)[N]) noexcept { return N; }
 
-constexpr inline std::size_t lengthof(const std::string& s) { return s.length(); }
+inline std::size_t lengthof(const std::string& s) { return s.length(); }
 
-template <typename... Args> constexpr inline std::string concat_strings(Args&&... args) {
+template <typename... Args> inline std::string concat_strings(Args&&... args) {
     std::size_t length{(lengthof(args) + ...)};
     std::string result;
     result.reserve(length);
