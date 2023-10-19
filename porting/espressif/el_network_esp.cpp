@@ -66,43 +66,35 @@ static void handler_sta_got_ip(void* arg, esp_event_base_t base, int32_t id, voi
     }
 }
 
-static void handler_mqtt_event(void* arg, esp_event_base_t base, int32_t id, void* data) {
+static void handler_mqtt_data(void* arg, esp_event_base_t base, int32_t id, void* data) {
     esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)data;
     esp_mqtt_client_handle_t client = event->client;
     topic_cb_t cb = (topic_cb_t)arg;
-    switch ((esp_mqtt_event_id_t)id) {
-    case MQTT_EVENT_CONNECTED:
-        mqtt_connected = true;
-        printf("MQTT_EVENT_CONNECTED\r\n");
-        break;
-    case MQTT_EVENT_DISCONNECTED:
-        mqtt_connected = false;
-        printf("MQTT_EVENT_DISCONNECTED\r\n");
-        break;
-    case MQTT_EVENT_SUBSCRIBED:
-        printf("MQTT_EVENT_SUBSCRIBED\r\n");
-        break;
-    case MQTT_EVENT_UNSUBSCRIBED:
-        printf("MQTT_EVENT_UNSUBSCRIBED\r\n");
-        break;
-    case MQTT_EVENT_PUBLISHED:
-        printf("MQTT_EVENT_PUBLISHED\r\n");
-        break;
-    case MQTT_EVENT_DATA:
-        printf("MQTT_EVENT_DATA\r\n");
-        if (cb) cb(event->topic, event->topic_len, event->data, event->data_len);
-        break;
-    case MQTT_EVENT_ERROR:
-    default:
-        break;
-    }
+    printf("MQTT_EVENT_DATA\r\n");
+    if (cb) cb(event->topic, event->topic_len, event->data, event->data_len);
+}
+
+static void handler_mqtt_connect(void* arg, esp_event_base_t base, int32_t id, void* data) {
+    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)data;
+    esp_mqtt_client_handle_t client = event->client;
+    el_net_sta_t *ns = (el_net_sta_t *)arg;
+    *ns = NETWORK_CONNECTED;
+    printf("MQTT_EVENT_CONNECTED\r\n");
+}
+
+static void handler_mqtt_disconnect(void* arg, esp_event_base_t base, int32_t id, void* data) {
+    esp_mqtt_event_handle_t event = (esp_mqtt_event_handle_t)data;
+    esp_mqtt_client_handle_t client = event->client;
+    el_net_sta_t *ns = (el_net_sta_t *)arg;
+    *ns = NETWORK_JOINED;
+    printf("MQTT_EVENT_DISCONNECTED\r\n");
 }
 
 namespace edgelab {
 
-el_err_code_t NetworkEsp::open(const char* ssid, const char *pwd) {
+el_err_code_t NetworkEsp::join(const char* ssid, const char *pwd) {
     printf("ssid=%s pwd=%s\r\n", ssid, pwd);
-    network_status = NETWORK_LOST;
+    network_status = NETWORK_IDLE;
 
     /* Initialize NVS for config */
     esp_err_t ret = nvs_flash_init();
@@ -170,14 +162,23 @@ el_err_code_t NetworkEsp::open(const char* ssid, const char *pwd) {
         return EL_ETIMOUT;
     }
 
-    network_status = NETWORK_READY;
+    network_status = NETWORK_JOINED;
     return EL_OK;
 }
 
-el_err_code_t NetworkEsp::close() {
+el_err_code_t NetworkEsp::quit() {
     esp_wifi_disconnect();
-    network_status = NETWORK_LOST;
+    network_status = NETWORK_IDLE;
     return EL_OK;
+}
+
+void NetworkEsp::init() {
+    network_status = NETWORK_IDLE;
+    return;
+}
+void NetworkEsp::deinit() {
+    network_status = NETWORK_LOST;
+    return;
 }
 
 el_net_sta_t NetworkEsp::status() {
@@ -209,7 +210,9 @@ el_err_code_t NetworkEsp::connect(const char* server, const char *user, const ch
     esp_mqtt_client_config_t mqtt_cfg = {.broker = {.address = {.uri = url}}};
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
 
-    esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_ANY, handler_mqtt_event, (void *)cb);
+    esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_DATA, handler_mqtt_data, (void *)cb);
+    esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_CONNECTED, handler_mqtt_connect, (void *)&network_status);
+    esp_mqtt_client_register_event(mqtt_client, MQTT_EVENT_DISCONNECTED, handler_mqtt_disconnect, (void *)&network_status);
     esp_mqtt_client_start(mqtt_client);
     return EL_OK;
 }

@@ -30,9 +30,10 @@
 
 typedef void (*topic_cb_t)(char* top, int tlen, char* msg, int mlen);
 typedef enum {
-    NETWORK_IDLE = 0,
-    NETWORK_LOST,
-    NETWORK_READY,
+    NETWORK_LOST = 0,
+    NETWORK_IDLE,
+    NETWORK_JOINED,
+    NETWORK_CONNECTED,
 } el_net_sta_t;
 
 typedef enum {
@@ -46,13 +47,16 @@ namespace edgelab {
 // WIFI-STA for MQTT
 class Network {
 public:
-    Network() : _is_present(false), network_status(NETWORK_IDLE) {}
+    Network() : _is_present(false), network_status(NETWORK_LOST) {}
     virtual ~Network() = default;
 
-    /* WIFI station */
-    virtual el_err_code_t open(const char* ssid, const char *pwd) = 0;
-    virtual el_err_code_t close() = 0;
+    virtual void init() = 0;
+    virtual void deinit() = 0;
     virtual el_net_sta_t status() = 0;
+
+    /* WIFI station */
+    virtual el_err_code_t join(const char* ssid, const char *pwd) = 0;
+    virtual el_err_code_t quit() = 0;
 
     /* MQTT client */
     virtual el_err_code_t connect(const char* server, const char *user, const char *pass, topic_cb_t cb) = 0;
