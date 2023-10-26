@@ -27,6 +27,8 @@
 
 #include "porting/we2/el_camera_ov5647.h"
 #include "porting/we2/el_serial_we2.h"
+#include "porting/we2/el_network_we2.h"
+#include "porting/we2/el_network_at.h"
 
 namespace edgelab {
 
@@ -85,8 +87,10 @@ DeviceWE2::DeviceWE2() {
     this->_revision_id = 0x0001;
     static CameraOV5647 camera{};
     static SerialWE2    serial{};
+    static NetworkWE2   network{};
     this->_camera = &camera;
     this->_serial = &serial;
+    this->_network = &network;
 }
 
 DeviceWE2::~DeviceWE2() {}

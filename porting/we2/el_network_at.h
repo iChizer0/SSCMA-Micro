@@ -3,21 +3,20 @@
 #define _EL_NETWORK_AT_H
 
 #include "porting/el_network.h"
-#include "porting/espressif/el_board_config.h"
+#include "porting/we2/el_board_config.h"
 
 #include <hx_drv_uart.h>
 
-#define LOG_RESET   "\033[0m"
+#define TAG_RST     "\033[0m"
 #define TAG_SYS     "\033[34m[SYS] "
 #define TAG_TX      "\033[33m[TX] "
 #define TAG_RX      "\033[32m[RX] "
 
-#define delay(t)    el_sleep(t)
-
+#define AT_RETRY_TIME_MS   5000
 #define AT_LONG_TIME_MS    2500
-#define AT_SHORT_TIME_MS   500
+#define AT_SHORT_TIME_MS   1500
 #define AT_TX_MAX_LEN      256 // 默认固件的AT指令长度阈值为256
-#define AT_RX_MAX_LEN      256 * 2 // 可能连续收到多条消息
+#define AT_RX_MAX_LEN      256 // 可能连续收到多条消息
 
 #define AT_STR_HEADER      "AT+"
 
