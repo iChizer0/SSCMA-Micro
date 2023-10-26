@@ -15,8 +15,9 @@
 #define AT_RETRY_TIME_MS   5000
 #define AT_LONG_TIME_MS    2500
 #define AT_SHORT_TIME_MS   1500
+#define AT_MAX_LINES_CNT   8
 #define AT_TX_MAX_LEN      256 // 默认固件的AT指令长度阈值为256
-#define AT_RX_MAX_LEN      256 // 可能连续收到多条消息
+#define AT_RX_MAX_LEN      4096 // 可能连续收到多条消息
 
 #define AT_STR_HEADER      "AT+"
 
@@ -83,13 +84,13 @@ typedef enum {
 typedef struct esp_at
 {
     char tbuf[AT_TX_MAX_LEN];
-    char rbuf[AT_RX_MAX_LEN];
+    // char rbuf[AT_RX_MAX_LEN];
+    lwRingBuffer *rbuf;
+
     DEV_UART_PTR port;
-    uint8_t cur_cmd;
-    uint8_t state; // TODO: 线程安全？
+    uint8_t state;
 
     topic_cb_t cb;
-    el_net_sta_t *ns;
 } esp_at_t;
 
 #endif

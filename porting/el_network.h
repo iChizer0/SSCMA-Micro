@@ -42,6 +42,63 @@ typedef enum {
     MQTT_QOS_2
 } mqtt_qos_t;
 
+class lwRingBuffer {
+public:
+    lwRingBuffer(size_t len) : buf(new char[len]), len(len), head(0), tail(0) {}
+    ~lwRingBuffer() {
+        delete[] buf;
+    }
+    void push(char c) {
+        if (isFull()) {
+            head = (head + 1) % len;
+        }
+        buf[tail] = c;
+        tail = (tail + 1) % len;
+    }
+    char pop() {
+        if (isEmpty()) {
+            return 0;
+        }
+        char c = buf[head];
+        head = (head + 1) % len;
+        return c;
+    }
+    bool isEmpty() {
+        return head == tail;
+    }
+    bool isFull() {
+        return (tail + 1) % len == head;
+    }
+    size_t size() {
+        return (tail - head + len) % len;
+    }
+    size_t capacity() {
+        return len;
+    }
+    void clear() {
+        head = tail;
+    }
+
+    lwRingBuffer operator>>(char &c) {
+        c = pop();
+        return *this;
+    }
+    lwRingBuffer operator<<(char c) {
+        push(c);
+        return *this;
+    }
+    char& operator[](int i) {
+        return buf[(head + i) % len];
+    }
+
+private:
+    char *buf;
+    size_t len;
+    uint32_t head;
+    uint32_t tail;
+};
+
+
 namespace edgelab {
 
 // WIFI-STA for MQTT
