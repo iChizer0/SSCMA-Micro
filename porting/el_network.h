@@ -87,15 +87,45 @@ public:
         push(c);
         return *this;
     }
-    char& operator[](int i) {
+    char operator[](int i) {
         return buf[(head + i) % len];
+    }
+    int find(char c) {
+        for (int i = head; i != tail; i = (i + 1) % len) {
+            if (buf[i] == c) {
+                return (i - head + len) % len;
+            }
+        }
+        return -1;
+    }
+    bool match(const char* str, int strlen) {
+        if (strlen > size()) {
+            return false;
+        }
+        for (int i = 0; i < strlen; i++) {
+            if (buf[(head + i) % len] != str[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    int extract(char c, char* str, int strlen) {
+        int i = find(c);
+        if (i == -1 || strlen < i) {
+            return 0;
+        }
+        for (int j = 0; j <= i; j++) {
+            str[j] = buf[(head + j) % len];
+        }
+        head = (head + i + 1) % len;
+        return i + 1;
     }
 
 private:
     char *buf;
     size_t len;
-    uint32_t head;
-    uint32_t tail;
+    int head;
+    int tail;
 };
 
 
