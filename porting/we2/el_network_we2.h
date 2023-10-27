@@ -52,7 +52,7 @@ public:
     operator bool() const { return _is_present; }
 
 private:
-    esp_at_t at;
+    esp_at_t* _at;
 };
 
 } // namespace edgelab

@@ -27,6 +27,15 @@
 
 #include "core/el_debug.h"
 
+lwRingBuffer at_rbuf(AT_RX_MAX_LEN);
+static uint8_t dma_rx[4] = {0};
+static esp_at_t at;
+static TaskHandle_t at_rx_task = NULL;
+// Indicates how many rows of data are in at_rbuf
+static SemaphoreHandle_t sem_line_cnt = NULL;
+// Indicates how the network status should change
+static SemaphoreHandle_t sem_network_flag = NULL;
+
 static el_err_code_t at_send(esp_at_t *at, uint32_t timeout) {
     uint32_t t = 0;
     el_printf(TAG_TX " %s\n" TAG_RST, at->tbuf);
@@ -49,21 +58,23 @@ static el_err_code_t at_send(esp_at_t *at, uint32_t timeout) {
     return EL_OK;
 }
 
-static void newline_parse(esp_at_t *at, char *str, int len) {
+static void newline_parse() {
     // 命令响应消息
+    // char line[len + 1] = {0};
+    // memcpy(line, str, len);
+    // line[len] = '\0';
+    // el_printf(TAG_RX "%s\n" TAG_RST, line);
+    char str[512] = {0};
+    uint32_t len = at_rbuf.extract('\n', str, sizeof(str));
     if (len < 3) return;
-    char line[len + 1] = {0};
-    memcpy(line, str, len);
-    line[len] = '\0';
-    el_printf(TAG_RX "%s\n" TAG_RST, line);
 
     if (strncmp(str, AT_STR_RESP_OK, strlen(AT_STR_RESP_OK)) == 0) {
         // el_printf(TAG_RX "OK\n" TAG_RST);
-        at->state = AT_STATE_OK;
+        at.state = AT_STATE_OK;
         return;
     } else if (strncmp(str, AT_STR_RESP_ERROR, strlen(AT_STR_RESP_ERROR)) == 0) {
         // el_printf(TAG_RX "ERROR\n" TAG_RST);
-        at->state = AT_STATE_ERROR;
+        at.state = AT_STATE_ERROR;
         return;
     } 
 
@@ -71,26 +82,34 @@ static void newline_parse(esp_at_t *at, char *str, int len) {
     if (len < 6) return;
     if (strncmp(str, AT_STR_RESP_READY, strlen(AT_STR_RESP_READY)) == 0) {
         // el_printf(TAG_RX "READY\n" TAG_RST);
-        at->state = AT_STATE_READY;
+        at.state = AT_STATE_READY;
         return;
     } else if (strncmp(str, AT_STR_RESP_WIFI_H, strlen(AT_STR_RESP_WIFI_H)) == 0) {
         if (str[strlen(AT_STR_RESP_WIFI_H)] == 'C') { // connected
             // el_printf(TAG_RX "WIFI CONNECTED\n" TAG_RST);
-            *at->ns = NETWORK_JOINED;
+            if (uxSemaphoreGetCount(sem_network_flag) == 0) {
+                xSemaphoreGive(sem_network_flag);
+            }
             return;
         } else if (str[strlen(AT_STR_RESP_WIFI_H)] == 'D') { // disconnected
             // el_printf(TAG_RX "WIFI DISCONNECTED\n" TAG_RST);
-            *at->ns = NETWORK_IDLE;
+            while (uxSemaphoreGetCount(sem_network_flag) > 0) {
+                xSemaphoreTake(sem_network_flag, 0);
+            }
             return;
         }
     } else if (strncmp(str, AT_STR_RESP_MQTT_H, strlen(AT_STR_RESP_MQTT_H)) == 0) {
         if (str[strlen(AT_STR_RESP_MQTT_H)] == 'C') { // connected
             // el_printf(TAG_RX "MQTT CONNECTED\n" TAG_RST);
-            *at->ns = NETWORK_CONNECTED;
+            while (uxSemaphoreGetCount(sem_network_flag) != 2) {
+                xSemaphoreGive(sem_network_flag);
+            }
             return;
         } else if (str[strlen(AT_STR_RESP_MQTT_H)] == 'D') { // disconnected
             // el_printf(TAG_RX "MQTT DISCONNECTED\n" TAG_RST);
-            if (*at->ns == NETWORK_CONNECTED) *at->ns = NETWORK_JOINED;
+            if (uxSemaphoreGetCount(sem_network_flag) == 2) {
+                xSemaphoreTake(sem_network_flag, 0);
+            }
             return;
         } else if (str[strlen(AT_STR_RESP_MQTT_H)] == 'S') { // subscribe received
             // el_printf(TAG_RX "MQTT SUBRECV\n" TAG_RST); 
@@ -123,35 +142,40 @@ static void newline_parse(esp_at_t *at, char *str, int len) {
             }
             msg_pos += str_len + 1;
 
-            at->cb(topic_pos, topic_len, msg_pos, msg_len);
+            at.cb(topic_pos, topic_len, msg_pos, msg_len);
             return;
         }
     }
 }
 
 static void at_recv(void *arg) {
-    esp_at_t *at = (esp_at_t *)arg;
-    int cnt = 0 , len = 0;
-    char line[64] = {0};
+    // esp_at_t *at = (esp_at_t *)arg;
+    el_net_sta_t *status = (el_net_sta_t *)arg;
+    uint8_t status_flag = 0;
     while (1) {
-        // 未初始化
-        if (at->state == AT_STATE_LOST) {
-            el_sleep(20);
-            continue;
+        if (*status != NETWORK_LOST) {
+            status_flag = uxSemaphoreGetCount(sem_network_flag);
+            *status = status_flag == 2 ? NETWORK_CONNECTED 
+                    : status_flag == 1 ? NETWORK_JOINED : NETWORK_IDLE;
         }
-        cnt = at->port->uart_read_nonblock(at->rbuf, sizeof(at->rbuf));
-        el_sleep(48);
-        if (cnt > 0) {
-            el_printf(TAG_SYS "got data %d\n" TAG_RST, cnt);
+        while (uxSemaphoreGetCount(sem_line_cnt) > 0) {
+            newline_parse();
+            xSemaphoreTake(sem_line_cnt, 0);
         }
-        for (int i = 0; i < cnt; i++) {
-            len++;
-            if (at->rbuf[i] == '\n') {
-                el_printf(TAG_SYS "parse new line, cnt:%d\n" TAG_RST, len);
-                newline_parse(at, at->rbuf + i - len + 1, len);
-                len = 0;
-            }
-        }
+        el_sleep(500);
+    }
+    return;
+}
+
+static void dma_rx_cb(void *arg) {
+    at.port->uart_read_udma(dma_rx, 1, (void *)dma_rx_cb);
+    if (at.state == AT_STATE_LOST) {
+        return;
+    }
+
+    at_rbuf << dma_rx[0];
+    if (dma_rx[0] == '\n') {
+        xSemaphoreGive(sem_line_cnt);
     }
     return;
 }
@@ -162,26 +186,33 @@ namespace edgelab {
 // TODO: 错误退出时释放资源
 void NetworkWE2::init() {
     el_err_code_t err;
-    at.cur_cmd = AT_CMD_NONE;
+    _at = &at;
     at.state = AT_STATE_LOST;
-    at.ns = &network_status;
+    at.rbuf = &at_rbuf;
 
     // 创建串口、初始化发送缓冲区和接收缓冲区
     hx_drv_scu_set_PB9_pinmux(SCU_PB9_PINMUX_UART2_RX);
     hx_drv_scu_set_PB10_pinmux(SCU_PB10_PINMUX_UART2_TX);
     hx_drv_uart_init(USE_DW_UART_2, HX_UART2_BASE);
     at.port = hx_drv_uart_get_dev(USE_DW_UART_2);
-    if (at.port == nullptr) {
+    if (at.port == NULL) {
         el_printf(TAG_SYS "uart init error\n" TAG_RST);
         return;
     }
     at.port->uart_open(UART_BAUDRATE_115200);
     memset((void *)at.tbuf, 0, sizeof(at.tbuf));
-    memset((void *)at.rbuf, 0, sizeof(at.rbuf));
+    at.port->uart_read_udma(dma_rx, 1, (void *)dma_rx_cb);
 
     // 创建线程，用于接收数据、解析数据并触发事件
-    if (xTaskCreate(at_recv, "at_recv", 4096, &at, 1, NULL) != pdPASS ) {
+    if (xTaskCreate(at_recv, "at_recv", 4096, &network_status, 1, &at_rx_task) != pdPASS ) {
         el_printf(TAG_SYS "at_recv create error\n" TAG_RST);
+        return;
+    }
+    sem_line_cnt = xSemaphoreCreateCounting(AT_MAX_LINES_CNT, 0);
+    sem_network_flag = xSemaphoreCreateCounting(2, 0);
+    if (sem_line_cnt == NULL || sem_network_flag == NULL) {
+        el_printf(TAG_SYS "sem create error\n" TAG_RST);
+        vTaskDelete(at_rx_task);
         return;
     }
     at.state = AT_STATE_IDLE;
@@ -217,7 +248,6 @@ void NetworkWE2::init() {
 
 void NetworkWE2::deinit() {
     at.port->uart_close();
-    at.cur_cmd = AT_CMD_NONE;
     at.state = AT_STATE_LOST;
 }
 
