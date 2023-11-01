@@ -27,6 +27,7 @@
 #define _EL_NETWORK_H_
 
 #include "core/el_types.h"
+#include "core/el_debug.h"
 
 typedef void (*topic_cb_t)(char* top, int tlen, char* msg, int mlen);
 typedef enum {
@@ -79,13 +80,13 @@ public:
         head = tail;
     }
 
-    lwRingBuffer operator>>(char &c) {
-        c = pop();
-        return *this;
+    friend lwRingBuffer& operator>>(lwRingBuffer& input, char &c) {
+        c = input.pop();
+        return input;
     }
-    lwRingBuffer operator<<(char c) {
-        push(c);
-        return *this;
+    friend lwRingBuffer& operator<<(lwRingBuffer& output, char c) {
+        output.push(c);
+        return output;
     }
     char operator[](int i) {
         return buf[(head + i) % len];
@@ -98,24 +99,32 @@ public:
         }
         return -1;
     }
-    bool match(const char* str, int strlen) {
-        if (strlen > size()) {
+    bool match(const char* str, int slen) {
+        if (slen > size()) {
             return false;
         }
-        for (int i = 0; i < strlen; i++) {
+        for (int i = 0; i < slen; i++) {
             if (buf[(head + i) % len] != str[i]) {
                 return false;
             }
         }
         return true;
     }
-    int extract(char c, char* str, int strlen) {
+    int extract(char c, char* str, int slen) {
         int i = find(c);
-        if (i == -1 || strlen < i) {
+        if (i == -1) {
             return 0;
         }
+        if (slen < i) {
+            head = (head + i + 1) % len;
+            return 0;
+        }
+        // el_printf("buf addr = %x, len = %d\n", buf, len);
+        // el_printf("head = %d, tail = %d\n", head, tail);
         for (int j = 0; j <= i; j++) {
             str[j] = buf[(head + j) % len];
+            // str[j] = (*this)[j];
+            // el_printf("%c", str[j]);
         }
         head = (head + i + 1) % len;
         return i + 1;
