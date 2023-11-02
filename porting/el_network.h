@@ -27,7 +27,6 @@
 #define _EL_NETWORK_H_
 
 #include "core/el_types.h"
-#include "core/el_debug.h"
 
 typedef void (*topic_cb_t)(char* top, int tlen, char* msg, int mlen);
 typedef enum {
@@ -119,12 +118,8 @@ public:
             head = (head + i + 1) % len;
             return 0;
         }
-        // el_printf("buf addr = %x, len = %d\n", buf, len);
-        // el_printf("head = %d, tail = %d\n", head, tail);
         for (int j = 0; j <= i; j++) {
             str[j] = buf[(head + j) % len];
-            // str[j] = (*this)[j];
-            // el_printf("%c", str[j]);
         }
         head = (head + i + 1) % len;
         return i + 1;
