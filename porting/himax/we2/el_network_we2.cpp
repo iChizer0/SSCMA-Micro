@@ -27,23 +27,25 @@
 
 #include <hx_drv_scu.h>
 
+#include <cstring>
+
 #include "core/el_debug.h"
 
-lwRingBuffer*         at_rbuf   = NULL;
-static uint8_t        dma_rx[4] = {0};
-static esp_at_t       at = {0};
-static TaskHandle_t   at_rx_parser   = NULL;
-static TaskHandle_t   status_handler = NULL;
+lwRingBuffer*       at_rbuf        = NULL;
+static uint8_t      dma_rx[4]      = {0};
+static esp_at_t     at             = {0};
+static TaskHandle_t at_rx_parser   = NULL;
+static TaskHandle_t status_handler = NULL;
 
 static resp_trigger_t resp_flow[] = {
-    {AT_STR_RESP_OK,     resp_action_ok},
-    {AT_STR_RESP_ERROR,  resp_action_error},
-    {AT_STR_RESP_READY,  resp_action_ready},
-    {AT_STR_RESP_WIFI_H, resp_action_wifi},
-    {AT_STR_RESP_PUBRAW, resp_action_pubraw},
-    {AT_STR_RESP_MQTT_H, resp_action_mqtt},
-    {AT_STR_RESP_IP_H,   resp_action_ip},
-    {AT_STR_RESP_NTP,    resp_action_ntp}
+  {    AT_STR_RESP_OK,     resp_action_ok},
+  { AT_STR_RESP_ERROR,  resp_action_error},
+  { AT_STR_RESP_READY,  resp_action_ready},
+  {AT_STR_RESP_WIFI_H,   resp_action_wifi},
+  {AT_STR_RESP_PUBRAW, resp_action_pubraw},
+  {AT_STR_RESP_MQTT_H,   resp_action_mqtt},
+  {  AT_STR_RESP_IP_H,     resp_action_ip},
+  {   AT_STR_RESP_NTP,    resp_action_ntp}
 };
 
 static el_err_code_t at_send(esp_at_t* at, uint32_t timeout) {
@@ -69,15 +71,15 @@ static el_err_code_t at_send(esp_at_t* at, uint32_t timeout) {
 }
 
 static void at_recv_parser(void* arg) {
-    char str[512] = {0};
-    char *ptr = NULL;
+    char     str[512] = {0};
+    char*    ptr      = NULL;
     uint32_t len = 0, i = 0;
     uint32_t num = sizeof(resp_flow) / sizeof(resp_flow[0]);
     while (1) {
         if (ulTaskNotifyTake(pdFALSE, portMAX_DELAY) > 0) {
-            len = at_rbuf->extract('\n', str, sizeof(str));
+            len      = at_rbuf->extract('\n', str, sizeof(str));
             str[len] = '\0';
-            ptr = (str[0] == '>') ? str + 1 : str;
+            ptr      = (str[0] == '>') ? str + 1 : str;
             for (i = 0; i < num; i++) {
                 if (strncmp(ptr, resp_flow[i].str, strlen(resp_flow[i].str)) == 0) {
                     resp_flow[i].act(ptr, arg);
@@ -93,18 +95,17 @@ static void at_recv_parser(void* arg) {
 }
 
 static void network_status_handler(void* arg) {
-    uint32_t value  = 0;
-    edgelab::NetworkWE2* net = (edgelab::NetworkWE2*)arg;
+    uint32_t             value = 0;
+    edgelab::NetworkWE2* net   = (edgelab::NetworkWE2*)arg;
     while (1) {
         if (xTaskNotifyWait(ULONG_MAX, ULONG_MAX, &value, portMAX_DELAY) == pdPASS) {
-            // switch (value)
-            // {
-            // case NETWORK_JOINED: 
-            //     sprintf(at.tbuf, AT_STR_HEADER AT_STR_CIPSTA "?" AT_STR_CRLF);
-            //     // at_send(&at, AT_SHORT_TIME_MS);
-            // default:
-            //     break;
-            // }
+            switch (value) {
+            case NETWORK_JOINED:
+                sprintf(at.tbuf, AT_STR_HEADER AT_STR_CIPSTA "?" AT_STR_CRLF);
+                at_send(&at, AT_SHORT_TIME_MS);
+            default:
+                break;
+            }
             net->set_status((el_net_sta_t)value);
         }
     }
@@ -129,8 +130,8 @@ namespace edgelab {
 
 void NetworkWE2::init(status_cb_t cb) {
     el_err_code_t err = EL_OK;
-    _at      = &at;
-    at.state = AT_STATE_LOST;
+    _at               = &at;
+    at.state          = AT_STATE_LOST;
     if (at_rbuf == NULL) {
         at_rbuf = new lwRingBuffer(AT_RX_MAX_LEN);
         if (at_rbuf == NULL) {
@@ -160,8 +161,7 @@ void NetworkWE2::init(status_cb_t cb) {
         return;
     }
     // Handle network status change events
-    if (xTaskCreate(network_status_handler, "network_status_handler", 64, this, 1, &status_handler) !=
-        pdPASS) {
+    if (xTaskCreate(network_status_handler, "network_status_handler", 64, this, 1, &status_handler) != pdPASS) {
         EL_LOGD("network_status_handler create error\n");
         return;
     }
@@ -193,7 +193,7 @@ void NetworkWE2::init(status_cb_t cb) {
         EL_LOGD("AT CWMODE ERROR : %d\n", err);
         return;
     }
-    
+
     if (cb) this->status_cb = cb;
     EL_LOGI("network init ok\n");
     this->_time_synced = false;
@@ -218,6 +218,7 @@ el_err_code_t NetworkWE2::join(const char* ssid, const char* pwd) {
     } else if (network_status == NETWORK_LOST) {
         return EL_EPERM;
     }
+
     sprintf(at.tbuf, AT_STR_HEADER AT_STR_CWJAP "=\"%s\",\"%s\"" AT_STR_CRLF, ssid, pwd);
     err = at_send(&at, AT_LONG_TIME_MS * 4);
     if (err != EL_OK) {
@@ -226,8 +227,11 @@ el_err_code_t NetworkWE2::join(const char* ssid, const char* pwd) {
     }
 
     if (this->mdns.is_enabled) {
-        sprintf(at.tbuf, AT_STR_HEADER "MDNS=1,\"%s\",\"%s\",%d" AT_STR_CRLF,
-                this->mdns.host_name, this->mdns.serv_name, this->mdns.port);
+        sprintf(at.tbuf,
+                AT_STR_HEADER "MDNS=1,\"%s\",\"%s\",%d" AT_STR_CRLF,
+                this->mdns.host_name,
+                this->mdns.serv_name,
+                this->mdns.port);
         err = at_send(&at, AT_SHORT_TIME_MS);
         if (err != EL_OK) {
             EL_LOGD("AT MDNS ERROR : %d\n", err);
@@ -262,13 +266,16 @@ el_err_code_t NetworkWE2::connect(const mqtt_server_config_t mqtt_cfg, topic_cb_
     if (cb == NULL) {
         return EL_EINVAL;
     }
-    at.cb = cb;
+    at.cb          = cb;
     this->topic_cb = cb;
 
     if (mqtt_cfg.use_ssl) {
         if (!this->_time_synced) {
-            sprintf(at.tbuf, AT_STR_HEADER AT_STR_CIPSNTPCFG "=1,%d,\"%s\",\"%s\"" AT_STR_CRLF,
-                    UTC_TIME_ZONE_CN, SNTP_SERVER_CN2, SNTP_SERVER_US);
+            sprintf(at.tbuf,
+                    AT_STR_HEADER AT_STR_CIPSNTPCFG "=1,%d,\"%s\",\"%s\"" AT_STR_CRLF,
+                    UTC_TIME_ZONE_CN,
+                    SNTP_SERVER_CN2,
+                    SNTP_SERVER_US);
             EL_LOGI("AT CIPSNTPCFG : %s\n", at.tbuf);
             at.port->uart_write(at.tbuf, strlen(at.tbuf));
             uint32_t t = 0;
@@ -303,9 +310,7 @@ el_err_code_t NetworkWE2::connect(const mqtt_server_config_t mqtt_cfg, topic_cb_
         return err;
     }
 
-    sprintf(at.tbuf, AT_STR_HEADER AT_STR_MQTTCONN "=0,\"%s\",%d,1" AT_STR_CRLF, 
-            mqtt_cfg.address,
-            mqtt_cfg.port);
+    sprintf(at.tbuf, AT_STR_HEADER AT_STR_MQTTCONN "=0,\"%s\",%d,1" AT_STR_CRLF, mqtt_cfg.address, mqtt_cfg.port);
     err = at_send(&at, AT_LONG_TIME_MS * 12);
     if (err != EL_OK) {
         EL_LOGI("AT MQTTCONN ERROR : %d\n", err);
@@ -328,7 +333,7 @@ el_err_code_t NetworkWE2::connect(const char* server, const char* user, const ch
     if (cb == NULL) {
         return EL_EINVAL;
     }
-    at.cb = cb;
+    at.cb          = cb;
     this->topic_cb = cb;
 
     sprintf(at.tbuf,
@@ -405,9 +410,9 @@ el_err_code_t NetworkWE2::publish(const char* topic, const char* dat, uint32_t l
     }
 
     if (len + strlen(topic) < 200) {
-        char special_chars[] = "\\\"\,\n\r";
-        char buf[230] = {0};
-        uint8_t j = 0;
+        char    special_chars[] = "\\\"\,\n\r";
+        char    buf[230]        = {0};
+        uint8_t j               = 0;
         for (uint8_t i = 0; i < len; i++) {
             if (strchr(special_chars, dat[i]) != NULL) {
                 buf[j++] = '\\';
@@ -421,8 +426,7 @@ el_err_code_t NetworkWE2::publish(const char* topic, const char* dat, uint32_t l
             EL_LOGD("AT MQTTPUB ERROR : %d\n", err);
             return err;
         }
-    } 
-    else if (len + 1 < sizeof(at.tbuf)) {
+    } else if (len + 1 < sizeof(at.tbuf)) {
         sprintf(at.tbuf, AT_STR_HEADER AT_STR_MQTTPUB "RAW=0,\"%s\",%d,%d,0" AT_STR_CRLF, topic, len, qos);
         err = at_send(&at, AT_SHORT_TIME_MS);
         if (err != EL_OK) {
@@ -489,7 +493,7 @@ void resp_action_mqtt(const char* resp, void* arg) {
         }
         topic_len = str_len;
 
-        str_len = 0;
+        str_len       = 0;
         char* msg_pos = topic_pos + topic_len + 1;
         if (msg_pos[0] != ',') {
             EL_LOGD("MQTT SUBRECV MSG ERROR\n");
@@ -512,24 +516,23 @@ void resp_action_mqtt(const char* resp, void* arg) {
         return;
     }
 }
+
 void resp_action_ip(const char* resp, void* arg) {
-    edgelab::NetworkWE2* net = (edgelab::NetworkWE2*)arg;
-    uint32_t ofs = strlen(AT_STR_RESP_IP_H);
-    ipv4_addr_t ipv4 = {0};
+    edgelab::NetworkWE2* net  = (edgelab::NetworkWE2*)arg;
+    uint32_t             ofs  = strlen(AT_STR_RESP_IP_H);
+    ipv4_addr_t          ipv4 = {0};
     if (strncmp(resp + ofs, "ip:", 3) == 0) {
         ofs += 3;
-        sscanf(resp + ofs, "\"%d.%d.%d.%d\"", &ipv4.addr[0], &ipv4.addr[1], &ipv4.addr[2], &ipv4.addr[3]);
-        net->_ip.ip = ipv4;
+        net->_ip.ip = ipv4_addr_t::from_str({resp + ofs, std::strlen(resp + ofs)});
         return;
     } else if (strncmp(resp + ofs, "gateway:", 8) == 0) {
         ofs += 8;
-        sscanf(resp + ofs, "\"%d.%d.%d.%d\"", &ipv4.addr[0], &ipv4.addr[1], &ipv4.addr[2], &ipv4.addr[3]);
-        net->_ip.gateway = ipv4;
+
+        net->_ip.gateway = ipv4_addr_t::from_str({resp + ofs, std::strlen(resp + ofs)});
         return;
     } else if (strncmp(resp + ofs, "netmask:", 8) == 0) {
         ofs += 8;
-        sscanf(resp + ofs, "\"%d.%d.%d.%d\"", &ipv4.addr[0], &ipv4.addr[1], &ipv4.addr[2], &ipv4.addr[3]);
-        net->_ip.netmask = ipv4;
+        net->_ip.netmask = ipv4_addr_t::from_str({resp + ofs, std::strlen(resp + ofs)});
         EL_LOGD("IP GOT\n");
         return;
     }
@@ -541,6 +544,5 @@ void resp_action_ntp(const char* resp, void* arg) {
     return;
 }
 void resp_action_pubraw(const char* resp, void* arg) {
-    at.state = (resp[strlen(AT_STR_RESP_PUBRAW)] == 'O') ? 
-                AT_STATE_OK : AT_STATE_ERROR;
+    at.state = (resp[strlen(AT_STR_RESP_PUBRAW)] == 'O') ? AT_STATE_OK : AT_STATE_ERROR;
 }

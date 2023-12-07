@@ -233,7 +233,7 @@ size_t WireWE2::available() {
     return this->rx_ring_buffer->size();
 }
 
-el_err_code_t WireWE2::read_bytes(char* buffer, size_t size) {
+size_t WireWE2::read_bytes(char* buffer, size_t size) {
     if (!this->_is_present) {
         return EL_EIO;
     }
@@ -243,15 +243,15 @@ el_err_code_t WireWE2::read_bytes(char* buffer, size_t size) {
     return EL_OK;
 }
 
-el_err_code_t WireWE2::send_bytes(const char* buffer, size_t size) {
+size_t WireWE2::send_bytes(const char* buffer, size_t size) {
     if (!this->_is_present) {
         el_printf("not present \n");
-        return EL_EIO;
+        return 0;
     }
     el_printf("send_bytes %d \n", size);
     this->tx_ring_buffer->push(buffer, size);
 
-    return EL_OK;
+    return 0;
 }
 
 void WireWE2::set_present(bool is_present) {

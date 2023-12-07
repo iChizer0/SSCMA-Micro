@@ -268,7 +268,7 @@ decltype(auto) algorithm_results_2_json_str(std::shared_ptr<AlgorithmType> algor
 }
 
 decltype(auto) wifi_config_2_json_str(const wifi_config_t& config, bool secure = true) {
-    const auto& pwd = secure ? std::string(std::strlen(config.passwd), '*') : std::string(config.passwd);
+    const auto& pwd = /* secure ? std::string(std::strlen(config.passwd), '*') : */ std::string(config.passwd);
     std::string ss{concat_strings("{\"name_type\": ",
                                   std::to_string(config.name_type),
                                   ", \"name\": ",
@@ -282,7 +282,7 @@ decltype(auto) wifi_config_2_json_str(const wifi_config_t& config, bool secure =
 }
 
 decltype(auto) mqtt_server_config_2_json_str(const mqtt_server_config_t& config, bool secure = true) {
-    const auto& pwd = secure ? std::string(std::strlen(config.password), '*') : std::string(config.password);
+    const auto& pwd = /* secure ? std::string(std::strlen(config.password), '*') : */ std::string(config.password);
     std::string ss{concat_strings("{\"client_id\": ",
                                   quoted(config.client_id),
                                   ", \"address\": ",
