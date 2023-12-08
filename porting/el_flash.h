@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023 Hongtai Liu (Seeed Technology Inc.)
+ * Copyright (c) 2023 Seeed Technology Co.,Ltd
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,11 +23,22 @@
  *
  */
 
-#ifndef _BOARD_GROVE_VISION_AI_WE1_H_
-#define _BOARD_GROVE_VISION_AI_WE1_H_
+#ifndef _EL_FLASH_H_
+#define _EL_FLASH_H_
 
-#define VENDOR_PREFIX    "grove"
-#define VENDOR_CHIP_NAME "we1"
-#define PORT_DEVICE_NAME "Grove Vision AI (WE1)"
+#include <cstddef>
+#include <cstdint>
+
+namespace edgelab::porting {
+
+extern bool el_flash_init();
+
+extern void el_flash_deinit();
+
+extern bool el_flash_mmap_init(uint32_t*, uint32_t*, const uint8_t**, uint32_t*);
+
+extern void el_flash_mmap_deinit(uint32_t*);
+
+}  // namespace edgelab::porting
 
 #endif

@@ -199,15 +199,15 @@ el_err_code_t WireWE2::deinit() {
 
 char WireWE2::echo(bool only_visible) {
     if (!this->_is_present) {
-        return EL_EIO;
+        return '\0';
     }
 
-    return EL_ENOTSUP;
+    return '\0';
 }
 
 char WireWE2::get_char() {
     if (!this->_is_present) {
-        return EL_EIO;
+        return '\0';
     }
 
     char c{'\0'};
@@ -219,7 +219,7 @@ char WireWE2::get_char() {
 
 size_t WireWE2::get_line(char* buffer, size_t size, const char delim) {
     if (!this->_is_present) {
-        return EL_EIO;
+        return 0;
     }
 
     return this->rx_ring_buffer->extract(delim, buffer, size);
@@ -227,7 +227,7 @@ size_t WireWE2::get_line(char* buffer, size_t size, const char delim) {
 
 size_t WireWE2::available() {
     if (!this->_is_present) {
-        return EL_EIO;
+        return 0;
     }
 
     return this->rx_ring_buffer->size();
@@ -235,12 +235,12 @@ size_t WireWE2::available() {
 
 size_t WireWE2::read_bytes(char* buffer, size_t size) {
     if (!this->_is_present) {
-        return EL_EIO;
+        return 0;
     }
 
     this->rx_ring_buffer->pop(buffer, size);
 
-    return EL_OK;
+    return size;
 }
 
 size_t WireWE2::send_bytes(const char* buffer, size_t size) {
