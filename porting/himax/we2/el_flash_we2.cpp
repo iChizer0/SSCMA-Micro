@@ -73,7 +73,7 @@ bool _el_acquire_we2_xip() {
 }
 
 bool el_flash_mmap_init(uint32_t* flash_addr, uint32_t* size, const uint8_t** mmap, uint32_t* handler) {
-    *flash_addr = 0x3A101000;
+    *flash_addr = 0x00101000;
     *size       = 0x00000010;
 
     if (!el_flash_init()) [[unlikely]]
@@ -88,7 +88,7 @@ bool el_flash_mmap_init(uint32_t* flash_addr, uint32_t* size, const uint8_t** mm
             return false;
     }
 
-    *mmap = reinterpret_cast<const uint8_t*>(*flash_addr);
+    *mmap = reinterpret_cast<const uint8_t*>(0x3A000000 + *flash_addr);
 
     return true;
 }
