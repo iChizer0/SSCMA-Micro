@@ -464,9 +464,7 @@ Response:
       "gateway": "192.168.0.1"
     },
     "in6_info": {
-      "ip": ":::::::",
-      "prefix": ":::::::",
-      "gateway": ":::::::"
+      "ip": ":::::::"
     },
     "config": {
       "name_type": 0,
