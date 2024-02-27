@@ -1,5 +1,7 @@
 #include "drv_ov5647.h"
 
+#include "drv_shared_cfg.h"
+
 static HX_CIS_SensorSetting_t OV5647_init_setting[] = {
 #if (OV5647_MIPI_MODE == OV5647_MIPI_640X480)
     #include "OV5647_mipi_2lane_640x480.i"
@@ -23,14 +25,22 @@ static HX_CIS_SensorSetting_t OV5647_stream_off[] = {
 
 static volatile bool     _frame_ready       = false;
 static volatile uint32_t _frame_count       = 0;
-static volatile uint32_t _wdma1_baseaddr    = 0x36000000;
-static volatile uint32_t _wdma2_baseaddr    = 0;
-static volatile uint32_t _wdma3_baseaddr    = 0;
-static volatile uint32_t _jpegsize_baseaddr = 0;
+static volatile uint32_t _wdma1_baseaddr    = HW1_ADDR_BASE;
+static volatile uint32_t _wdma2_baseaddr    = JPEG_BASE_ADDR;
+static volatile uint32_t _wdma3_baseaddr    = YUV422_BASE_ADDR;
+static volatile uint32_t _jpegsize_baseaddr = JPEG_SZ_BASE_ADDR;
 static el_img_t          _frame, _jpeg;
+
+static void memset_fb() {
+    memset((void*)_wdma1_baseaddr, 0, HW1_ADDR_SIZE);
+    memset((void*)_wdma2_baseaddr, 0, JPEG_SIZE_MAX);
+    memset((void*)_wdma3_baseaddr, 0, YUV422_SIZE_MAX);
+    memset((void*)_jpegsize_baseaddr, 0, JPEG_SZ_SIZE);
+}
 
 el_res_t _drv_ov5647_fit_res(uint16_t width, uint16_t height) {
     el_res_t res;
+
     if (width > 320 || height > 240) {
         res.width  = 640;
         res.height = 480;
@@ -41,34 +51,24 @@ el_res_t _drv_ov5647_fit_res(uint16_t width, uint16_t height) {
         res.width  = 160;
         res.height = 120;
     }
-    // if (width > 480 || height > 320) {
-    //     res.width  = 960;
-    //     res.height = 540;
-    // } else if (width > 240 || height > 160) {
-    //     res.width  = 480;
-    //     res.height = 270;
-    // } else {
-    //     res.width  = 240;
-    //     res.height = 135;
-    // }
+
     EL_LOGD("fit width: %d height: %d", res.width, res.height);
 
     return res;
 }
 
 void drv_ov5647_cb(SENSORDPLIB_STATUS_E event) {
-    // EL_LOGD("Event: %d", event);
+    EL_LOGD("Event: %d", event);
+
     switch (event) {
     case SENSORDPLIB_STATUS_XDMA_FRAME_READY:
         _frame_ready = true;
         _frame_count++;
         break;
     default:
-        el_printf("Unkonw event:%d", event);
-
+        EL_LOGW("Unkonw event: %d", event);
         break;
     }
-    return;
 }
 
 void set_mipi_csirx_enable() {
@@ -227,6 +227,7 @@ el_err_code_t drv_ov5647_init(uint16_t width, uint16_t height) {
     EL_LOGD("hx_drv_cis_set_slaveID(0x%02X)", CIS_I2C_ID);
 
     el_sleep(3);
+
     // off stream
     if (hx_drv_cis_setRegTable(OV5647_stream_off, HX_CIS_SIZE_N(OV5647_stream_off, HX_CIS_SensorSetting_t)) !=
         HX_CIS_NO_ERROR) {
@@ -273,26 +274,7 @@ el_err_code_t drv_ov5647_init(uint16_t width, uint16_t height) {
     _jpeg.size   = width * height / 4;
 
     // DMA
-    if (!_jpegsize_baseaddr) _jpegsize_baseaddr = (uint32_t)el_aligned_malloc_once(32, 64);
-    if (_jpegsize_baseaddr == 0) {
-        ret = EL_ENOMEM;
-        goto err;
-    }
-
-    {
-        size_t bs = (((623 + (size_t)(res.width / 16) * (size_t)(res.height / 16) * 128 + 35) >> 2) << 2);
-        if (!_wdma1_baseaddr) _wdma1_baseaddr = (uint32_t)el_aligned_malloc_once(32, bs);  // JPEG
-    }
-    if (_wdma1_baseaddr == 0) {
-        ret = EL_ENOMEM;
-        goto err;
-    }
-    _wdma2_baseaddr = _wdma1_baseaddr;
-    if (!_wdma3_baseaddr) _wdma3_baseaddr = (uint32_t)el_aligned_malloc_once(32, res.width * res.height * 3 / 2);
-    if (_wdma3_baseaddr == 0) {
-        ret = EL_ENOMEM;
-        goto err;
-    }
+    memset_fb();
 
     _frame.data = _wdma3_baseaddr;
     _jpeg.data  = _wdma2_baseaddr;
@@ -321,6 +303,7 @@ el_err_code_t drv_ov5647_init(uint16_t width, uint16_t height) {
                                                    crop,
                                                    OV5647_BINNING_0);
         break;
+
     case 320:
         sensordplib_set_sensorctrl_inp_wi_crop_bin(SENSORDPLIB_SENSOR_OV5647,
                                                    SENSORDPLIB_STREAM_NONEAOS,
@@ -330,6 +313,7 @@ el_err_code_t drv_ov5647_init(uint16_t width, uint16_t height) {
                                                    crop,
                                                    OV5647_BINNING_1);
         break;
+
     case 160:
         sensordplib_set_sensorctrl_inp_wi_crop_bin(SENSORDPLIB_SENSOR_OV5647,
                                                    SENSORDPLIB_STREAM_NONEAOS,
@@ -386,19 +370,6 @@ err:
 
     hx_drv_sensorctrl_set_xSleep(0);
 
-    // if (_jpegsize_baseaddr != 0) {
-    //     el_free(_jpegsize_baseaddr);
-    //     _jpegsize_baseaddr = 0;
-    // }
-    // if (_wdma3_baseaddr != 0) {
-    //     el_free(_wdma3_baseaddr);
-    //     _wdma3_baseaddr = 0;
-    // }
-    // if (_wdma1_baseaddr) {
-    //     el_free(_wdma3_baseaddr);
-    //     _wdma1_baseaddr = 0;
-    //     _wdma2_baseaddr = 0;
-    // }
     return ret;
 }
 
@@ -414,18 +385,21 @@ el_err_code_t drv_ov5647_deinit() {
         return EL_EIO;
     }
     set_mipi_csirx_disable();
+
     // power off
     hx_drv_sensorctrl_set_xSleep(1);
+
     return EL_OK;
 }
 
 el_err_code_t drv_ov5647_capture(uint32_t timeout) {
     uint32_t time = el_get_time_ms();
+
     while (!_frame_ready) {
         if (el_get_time_ms() - time >= timeout) {
             return EL_ETIMOUT;
         }
-        el_sleep(1);
+        el_sleep(5);
     }
 
     return EL_OK;
@@ -443,18 +417,25 @@ el_img_t drv_ov5647_get_frame() { return _frame; }
 el_img_t drv_ov5647_get_jpeg() {
     uint8_t  frame_no, buffer_no = 0;
     uint32_t reg_val = 0, mem_val = 0;
+
     hx_drv_xdma_get_WDMA2_bufferNo(&buffer_no);
     hx_drv_xdma_get_WDMA2NextFrameIdx(&frame_no);
+
     if (frame_no == 0) {
         frame_no = buffer_no - 1;
     } else {
         frame_no = frame_no - 1;
     }
+
     hx_drv_jpeg_get_EncOutRealMEMSize(&reg_val);
     hx_drv_jpeg_get_FillFileSizeToMem(frame_no, (uint32_t)_jpegsize_baseaddr, &mem_val);
     hx_drv_jpeg_get_MemAddrByFrameNo(frame_no, _wdma2_baseaddr, &_jpeg.data);
+
     _jpeg.size = mem_val == reg_val ? mem_val : reg_val;
+
     hx_InvalidateDCache_by_Addr((volatile void*)_jpeg.data, _jpeg.size);
+
     EL_LOGD("JPEG size: %d", _jpeg.size);
+
     return _jpeg;
 }
