@@ -335,6 +335,59 @@ ma_err_t EncoderJSON::write(const std::vector<ma_keypoint3f_t>& value) {
 
 }
 
+ma_err_t EncoderJSON::write(const in4_info_t& value) {
+    if (cJSON_GetObjectItem(m_data, "in4_info") != nullptr) {
+        return MA_EEXIST;
+    }
+    cJSON* item = cJSON_CreateArray();
+    if (item == nullptr) {
+        return MA_FAILED;
+    }
+    std::string str = value.ip.to_str();
+    cJSON_AddItemToArray(item, cJSON_CreateString(str.c_str()));
+    str = value.netmask.to_str();
+    cJSON_AddItemToArray(item, cJSON_CreateString(str.c_str()));
+    str = value.gateway.to_str();
+    cJSON_AddItemToArray(item, cJSON_CreateString(str.c_str()));
+    cJSON_AddItemToObject(m_data, "in4_info", item);
+
+    
+    return MA_OK;
+}
+
+ma_err_t EncoderJSON::write(const in6_info_t& value) {
+    if (cJSON_GetObjectItem(m_data, "in6_info") != nullptr) {
+        return MA_EEXIST;
+    }
+    cJSON* item = cJSON_CreateArray();
+    if (item == nullptr) {
+        return MA_FAILED;
+    }
+    std::string str = value.ip.to_str();
+    cJSON_AddItemToArray(item, cJSON_CreateString(str.c_str()));
+    cJSON_AddItemToObject(m_data, "in6_info", item);
+    return MA_OK;
+}
+
+ma_err_t EncoderJSON::write(const ma_wifi_config_t& value) {
+    if (cJSON_GetObjectItem(m_data, "config") != nullptr) {
+        return MA_EEXIST;
+    }
+    cJSON* item = cJSON_CreateObject();
+    if (item == nullptr) {
+        return MA_FAILED;
+    }
+    std::string str = value.ssid;
+    if (str.size() < 1) {
+        str = value.bssid;
+    }
+    cJSON_AddItemToObject(item, "name", cJSON_CreateString(str.c_str()));
+    cJSON_AddItemToObject(item, "security", cJSON_CreateNumber(value.security));
+    cJSON_AddItemToObject(item, "password", cJSON_CreateString(value.password));
+    cJSON_AddItemToObject(m_data, "wifi_config", item);
+    return MA_OK;
+}
+
 ma_err_t EncoderJSON::write(const  std::forward_list<ma_point_t>& value) {
     if (cJSON_GetObjectItem(m_data, "points") != nullptr) {
         return MA_EEXIST;
