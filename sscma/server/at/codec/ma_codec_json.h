@@ -63,6 +63,10 @@ public:
     ma_err_t write(const in6_info_t& value) override;
     ma_err_t write(const ma_wifi_config_t& value) override;
 
+    ma_err_t write(const ma_mqtt_config_t& value) override;
+
+    ma_err_t write(const ma_mqtt_topic_config_t& value) override;
+
 
     const std::string& toString() const override;
     const void* data() const override;

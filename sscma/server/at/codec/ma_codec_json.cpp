@@ -539,6 +539,40 @@ ma_err_t EncoderJSON::write(const Sensor* value, size_t preset ) {
     return MA_OK;
 }
 
+ma_err_t EncoderJSON::write(const ma_mqtt_config_t& value) {
+    cJSON* item = cJSON_CreateObject();
+    if (item == nullptr) {
+        return MA_FAILED;
+    }
+
+    cJSON_AddItemToObject(item, "host", cJSON_CreateString(value.host));
+    cJSON_AddItemToObject(item, "port", cJSON_CreateNumber(value.port));
+    cJSON_AddItemToObject(item, "username", cJSON_CreateString(value.username));
+    cJSON_AddItemToObject(item, "password", cJSON_CreateString(value.password));
+    cJSON_AddItemToObject(item, "client_id", cJSON_CreateString(value.client_id));
+    cJSON_AddItemToObject(item, "use_ssl", cJSON_CreateNumber((int)value.use_ssl));
+
+    cJSON_AddItemToObject(m_data, "config", item);
+    return MA_OK;
+}
+
+ma_err_t EncoderJSON::write(const ma_mqtt_topic_config_t& value) {
+    cJSON* item = cJSON_CreateObject();
+    if (item == nullptr) {
+        return MA_FAILED;
+    }
+
+    cJSON_AddItemToObject(item, "pub_topic", cJSON_CreateString(value.pub_topic));
+    cJSON_AddItemToObject(item, "pub_qos", cJSON_CreateNumber((int)value.pub_qos));
+    cJSON_AddItemToObject(item, "sub_topic", cJSON_CreateString(value.sub_topic));
+    cJSON_AddItemToObject(item, "sub_qos", cJSON_CreateNumber((int)value.sub_qos));
+   
+    cJSON_AddItemToObject(m_data, "topic", item);
+    return MA_OK;
+}
+
+
+
 DecoderJSON::DecoderJSON() : m_root(nullptr), m_mutex(false) {}
 
 DecoderJSON::~DecoderJSON() {

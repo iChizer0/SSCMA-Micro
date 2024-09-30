@@ -276,7 +276,9 @@ public:
 
     virtual ma_err_t write(const ma_wifi_config_t& value) = 0;
 
+    virtual ma_err_t write(const ma_mqtt_config_t& value) = 0;
 
+    virtual ma_err_t write(const ma_mqtt_topic_config_t& value) = 0;
 };
 
 class Decoder {
