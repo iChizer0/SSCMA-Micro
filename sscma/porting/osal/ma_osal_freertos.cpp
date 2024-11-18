@@ -38,7 +38,13 @@ MA_ATTR_WEAK void operator delete[](void* ptr) {
 #undef xPortIsInsideInterrupt
 #endif
 
+#if MA_CONFIG_OSAL_FREERTOS_USE_PII
+extern "C" {
+    BaseType_t xPortInIsrContext(void);
+}
+#else
 #define xPortIsInsideInterrupt() (xPortInIsrContext())
+#endif
 
 namespace ma {
 
