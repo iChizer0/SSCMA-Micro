@@ -55,7 +55,7 @@ constexpr inline float sigmoid(float x) {
 }
 
 constexpr inline float fastSigmoid(float x) {
-    return 1.0f / (1.0f + fastExp(-x));
+    return 1.0f / (1.0f + std::exp(-x));
 }
 
 constexpr inline float inverseSigmoid(float x) {

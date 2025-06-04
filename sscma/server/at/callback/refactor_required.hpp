@@ -222,7 +222,9 @@ struct TriggerRule {
         return rule;
     }
 
-    ~TriggerRule() = default;
+    ~TriggerRule() {
+        __ma_set_gpio_level(gpio_pin, default_level);
+    }
 
     void operator()(Model* algorithm) {
         if (algorithm == nullptr) {
@@ -230,14 +232,18 @@ struct TriggerRule {
         }
 
         bool fit = false;
+        bool found_target = false;
 
         switch (algorithm->getType()) {
             case MA_MODEL_TYPE_PFLD: {
                 const auto& results = static_cast<PointDetector*>(algorithm)->getResults();
                 for (const auto& result : results) {
-                    if (result.target == class_id && comp(result.score, threshold)) {
-                        fit = true;
-                        break;
+                    if (result.target == class_id) {
+                        found_target = true;
+                        if (comp(result.score, threshold)) {
+                            fit = true;
+                            break;
+                        }
                     }
                 }
                 break;
@@ -246,9 +252,12 @@ struct TriggerRule {
             case MA_MODEL_TYPE_IMCLS: {
                 auto results = static_cast<Classifier*>(algorithm)->getResults();
                 for (auto& result : results) {
-                    if (result.target == class_id && comp(result.score, threshold)) {
-                        fit = true;
-                        break;
+                    if (result.target == class_id) {
+                        found_target = true;
+                        if (comp(result.score, threshold)) {
+                            fit = true;
+                            break;
+                        }
                     }
                 }
                 break;
@@ -259,13 +268,16 @@ struct TriggerRule {
             case MA_MODEL_TYPE_YOLOV8:
             case MA_MODEL_TYPE_YOLO11:
             case MA_MODEL_TYPE_NVIDIA_DET:
-            case MA_MODEL_TYPE_YOLO_WORLD: 
+            case MA_MODEL_TYPE_YOLO_WORLD:
             case MA_MODEL_TYPE_RTMDET: {
                 auto results = static_cast<Detector*>(algorithm)->getResults();
                 for (auto& result : results) {
-                    if (result.target == class_id && comp(result.score, threshold)) {
-                        fit = true;
-                        break;
+                    if (result.target == class_id) {
+                        found_target = true;
+                        if (comp(result.score, threshold)) {
+                            fit = true;
+                            break;
+                        }
                     }
                 }
 
@@ -276,9 +288,12 @@ struct TriggerRule {
             case MA_MODEL_TYPE_YOLO11_POSE: {
                 auto results = static_cast<PoseDetector*>(algorithm)->getResults();
                 for (auto& result : results) {
-                    if (result.box.target == class_id && comp(result.box.score, threshold)) {
-                        fit = true;
-                        break;
+                    if (result.box.target == class_id) {
+                        found_target = true;
+                        if (comp(result.box.score, threshold)) {
+                            fit = true;
+                            break;
+                        }
                     }
                 }
 
@@ -287,6 +302,10 @@ struct TriggerRule {
 
             default:
                 break;
+        }
+
+        if (!found_target) {
+            fit = comp(0.f, threshold);
         }
 
         if (fit) {
