@@ -164,6 +164,7 @@ private:
 private:
     Mutex m_mutex;
     ma_mbox_t m_mbox;
+    size_t m_size;
 };
 
 class Timer {
