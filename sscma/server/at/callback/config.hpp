@@ -30,7 +30,7 @@ void setScoreThreshold(const std::vector<std::string>& argv, Transport& transpor
     }
 
 exit:
-    auto value = static_cast<uint64_t>(std::round(static_resource->shared_threshold_score * 100));
+    auto value = static_cast<uint64_t>(std::round(static_resource->shared_threshold_score * 100.0));
     encoder.begin(MA_MSG_TYPE_RESP, ret, argv[0], value);
     encoder.end();
     transport.send(reinterpret_cast<const char*>(encoder.data()), encoder.size());
@@ -56,7 +56,7 @@ void setNMSThreshold(const std::vector<std::string>& argv, Transport& transport,
     }
 
 exit:
-    auto value = static_cast<uint64_t>(std::round(static_resource->shared_threshold_nms * 100));
+    auto value = static_cast<uint64_t>(std::round(static_resource->shared_threshold_nms * 100.0));
     encoder.begin(MA_MSG_TYPE_RESP, ret, argv[0], value);
     encoder.end();
     transport.send(reinterpret_cast<const char*>(encoder.data()), encoder.size());
@@ -67,7 +67,7 @@ void getScoreThreshold(const std::vector<std::string>& argv, Transport& transpor
 
     MA_STORAGE_GET_POD(static_resource->device->getStorage(), "ma#score_threshold", static_resource->shared_threshold_score, static_resource->shared_threshold_score);
 
-    encoder.begin(MA_MSG_TYPE_RESP, ret, argv[0], static_cast<uint64_t>(std::round(static_resource->shared_threshold_score * 100)));
+    encoder.begin(MA_MSG_TYPE_RESP, ret, argv[0], static_cast<uint64_t>(std::round(static_resource->shared_threshold_score * 100.0)));
     encoder.end();
     transport.send(reinterpret_cast<const char*>(encoder.data()), encoder.size());
 }
@@ -77,7 +77,7 @@ void getNMSThreshold(const std::vector<std::string>& argv, Transport& transport,
 
     MA_STORAGE_GET_POD(static_resource->device->getStorage(), "ma#nms_threshold", static_resource->shared_threshold_nms, static_resource->shared_threshold_nms);
 
-    encoder.begin(MA_MSG_TYPE_RESP, ret, argv[0], static_cast<uint64_t>(std::round(static_resource->shared_threshold_nms * 100)));
+    encoder.begin(MA_MSG_TYPE_RESP, ret, argv[0], static_cast<uint64_t>(std::round(static_resource->shared_threshold_nms * 100.0)));
     encoder.end();
     transport.send(reinterpret_cast<const char*>(encoder.data()), encoder.size());
 }
@@ -91,8 +91,8 @@ void getDefaultTransportType(const std::vector<std::string>& argv, Transport& tr
 }
 
 void setDefaultTransportType(const std::vector<std::string>& argv, Transport& transport, Encoder& encoder) {
-    ma_err_t ret  = MA_OK;
-    int      type = static_resource->default_transport_type;
+    ma_err_t ret = MA_OK;
+    int type     = static_resource->default_transport_type;
 
     if (argv.size() < 2) {
         ret = MA_EINVAL;

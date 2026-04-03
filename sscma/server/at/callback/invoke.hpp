@@ -155,8 +155,8 @@ Err:
         _encoder->write(_algorithm ? static_cast<int>(_algorithm->getType()) : static_cast<int>(static_resource->current_algorithm_id),
                         0,
                         _sensor ? static_cast<int>(_sensor->getType()) : 0,
-                        static_cast<int>(static_resource->shared_threshold_score * 100.0),
-                        static_cast<int>(static_resource->shared_threshold_nms * 100.0));
+                        static_cast<int>(std::round(static_resource->shared_threshold_score * 100.0)),
+                        static_cast<int>(std::round(static_resource->shared_threshold_nms * 100.0)));
         _encoder->end();
         _transport->send(reinterpret_cast<const char*>(_encoder->data()), _encoder->size());
     }
